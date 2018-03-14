@@ -21,13 +21,14 @@ Setup
 3. Push to the `app.yaml` file to Google AppEngine.
 4. Add `tink/four-eyes` to the `status` list in `bors.toml`.
 
-Testing
--------
-There's a very basic test. Run using `go test -v .`.
-
 Developing
 ----------
-Install Google AppEngine SDK. Start a local development environment:
+Before doing anything else you want to install `godep` and execute
+
+    $ dep ensure
+
+to sync your `vendor` directory. Then install Google AppEngine SDK. Start a
+local development environment:
 
     $ dev_appserver.py --enable_host_checking=False app.yaml
 
@@ -35,6 +36,10 @@ Install Google AppEngine SDK. Start a local development environment:
 sentence.) You likely want to create a temporary Github App for development and
 use something like [`ngrok`](https://ngrok.com) to get a temporary URL that
 Github can send its webhooks to.
+
+Testing
+-------
+There's a very basic test. Run using `go test -v .`.
 
 Limitations
 -----------
