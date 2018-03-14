@@ -1,0 +1,12 @@
+package hello
+
+// The following two fields must be set when creating a new app.
+var privateKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+ABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABCABC
+-----END RSA PRIVATE KEY-----
+`)
+var hmacSecret = []byte(`ABCABCABC`)
+
+const integrationID = 1
+
+const installationID = 2
