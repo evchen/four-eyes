@@ -34,7 +34,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		handlePushEvent(w, r)
 	default:
 		log.Println("unrecognized event:", event)
-		w.WriteHeader(400)
+		w.WriteHeader(204)
 	}
 }
 
@@ -42,6 +42,7 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 	if err := decodeJSONOrBail(w, r, &struct{}{}); err != nil {
 		return
 	}
+	w.WriteHeader(204)
 }
 
 func handlePushEvent(w http.ResponseWriter, r *http.Request) {
@@ -76,6 +77,7 @@ func handlePushEvent(w http.ResponseWriter, r *http.Request) {
 			Context:     &context,
 		})
 	}
+	w.WriteHeader(204)
 }
 
 func setMergeCommitStatus(ctx context.Context, client *github.Client, data github.PushEvent) error {
