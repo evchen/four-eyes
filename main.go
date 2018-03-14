@@ -12,11 +12,12 @@ import (
 	"log"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/bradleyfalzon/ghinstallation"
 	"github.com/google/go-github/github"
+	"google.golang.org/appengine"
+	"google.golang.org/appengine/urlfetch"
 )
 
 func init() {
@@ -44,19 +45,19 @@ func handlePing(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePushEvent(w http.ResponseWriter, r *http.Request) {
-	ctx := context.Background()
-	var event PushEventData
+	ctx := appengine.NewContext(r)
+	var event github.PushEvent
 
 	if err := decodeJSONOrBail(w, r, &event); err != nil {
 		return
 	}
 
-	if !isRelevantRef(event.Ref) {
-		log.Println("Came here")
+	if !isRelevantRef(event.GetRef()) {
 		return
 	}
 
-	itr, err := ghinstallation.NewAppsTransport(http.DefaultTransport, integrationID, privateKey)
+	appengineTransport := urlfetch.Transport{ctx, false}
+	itr, err := ghinstallation.New(&appengineTransport, integrationID, installationID, privateKey)
 	if err != nil {
 		log.Println("Unable to create a new transport:", err)
 		return
@@ -69,7 +70,7 @@ func handlePushEvent(w http.ResponseWriter, r *http.Request) {
 		state := "failure"
 		desc := "Something went wrong when checking who approved the PRs."
 		context := "tink/four-eyes"
-		client.Repositories.CreateStatus(ctx, event.Repository.Owner.Name, event.Repository.Name, event.HeadSHA, &github.RepoStatus{
+		client.Repositories.CreateStatus(ctx, event.GetRepo().GetOwner().GetName(), event.GetRepo().GetName(), event.GetHeadCommit().GetID(), &github.RepoStatus{
 			State:       &state,
 			Description: &desc,
 			Context:     &context,
@@ -77,30 +78,12 @@ func handlePushEvent(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-type PushEventData struct {
-	Ref        string `json:"ref"`
-	HeadSHA    string `json:"head"`
-	Repository struct {
-		Name  string `json:"name"`
-		Owner struct {
-			Name string `json:"name"`
-		} `json:"owner"`
-	} `json:"repository"`
-}
-
-func setMergeCommitStatus(ctx context.Context, client *github.Client, data PushEventData) error {
-	commit, _, err := client.Git.GetCommit(ctx, data.Repository.Owner.Name, data.Repository.Name, data.HeadSHA)
-	if err != nil {
-		return err
-	}
-
-	pullRequestNumbers := extractPullRequestNumbers(commit)
+func setMergeCommitStatus(ctx context.Context, client *github.Client, data github.PushEvent) error {
+	pullRequestNumbers := extractFailedPullRequestNumbers(data.GetHeadCommit().GetMessage())
 
 	var rejectedPrs []string
 	for _, pullRequestNumber := range pullRequestNumbers {
-		if !approvedByNonAuthor(ctx, client, data, pullRequestNumber) {
-			rejectedPrs = append(rejectedPrs, fmt.Sprintf("#%d", pullRequestNumber))
-		}
+		rejectedPrs = append(rejectedPrs, fmt.Sprintf("#%s", pullRequestNumber))
 	}
 
 	// TODO: Move to constant and replace all usages.
@@ -120,62 +103,27 @@ func setMergeCommitStatus(ctx context.Context, client *github.Client, data PushE
 	status.State = &state
 	status.Description = &desc
 
-	_, _, err = client.Repositories.CreateStatus(ctx, data.Repository.Owner.Name, data.Repository.Name, data.HeadSHA, &status)
+	_, _, err := client.Repositories.CreateStatus(ctx, data.GetRepo().GetOwner().GetName(), data.GetRepo().GetName(), data.GetHeadCommit().GetID(), &status)
 	return err
 }
 
 // Source: https://www.npmjs.com/package/github-username-regex
 var prRegexp = regexp.MustCompile(`(\d+): .* r=(\S+) a=(\S+)`)
 
-func extractPullRequestNumbers(c *github.Commit) []int {
-	matches := prRegexp.FindAllStringSubmatch(*c.Message, -1)
-	var result []int
+func extractFailedPullRequestNumbers(commitMessage string) []string {
+	matches := prRegexp.FindAllStringSubmatch(commitMessage, -1)
+	var result []string
 	for _, match := range matches {
-		i, _ := strconv.Atoi(match[1])
-		result = append(result, i)
+		if match[2] == match[3] {
+			result = append(result, match[1])
+		}
 	}
 	return result
-}
-
-func approvedByNonAuthor(ctx context.Context, client *github.Client, data PushEventData, pr int) bool {
-	pullRequest, _, err := client.PullRequests.Get(ctx, data.Repository.Owner.Name, data.Repository.Name, pr)
-	if err != nil {
-		log.Println("Could not fetch pull request.", "Pr:", pr, "Error:", err)
-		return false
-	}
-
-	author := pullRequest.User.ID
-
-	opt := &github.IssueListCommentsOptions{
-		ListOptions: github.ListOptions{PerPage: 10},
-	}
-	for {
-		comments, resp, err := client.Issues.ListComments(ctx, data.Repository.Owner.Name, data.Repository.Name, pr, opt)
-		if err != nil {
-			log.Println("Could not fetch pull request comments.", "Pr:", pr, "Error:", err)
-			return false
-		}
-
-		for _, comment := range comments {
-			log.Println(strings.ToLower(strings.Trim(comment.GetBody(), " ")))
-			if strings.ToLower(strings.Trim(comment.GetBody(), " ")) == "bors r+" && *comment.User.ID != *author {
-				return true
-			}
-		}
-
-		if resp.NextPage == 0 {
-			break
-		}
-		opt.Page = resp.NextPage
-	}
-
-	return false
 }
 
 // Utility functions.
 
 func isRelevantRef(ref string) bool {
-	log.Println(ref)
 	return ref == "refs/heads/staging" || ref == "refs/heads/trying"
 }
 
