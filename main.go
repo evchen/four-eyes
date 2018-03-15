@@ -20,6 +20,8 @@ import (
 	"google.golang.org/appengine/urlfetch"
 )
 
+var commitStatusContext = "tink/four-eyes"
+
 func init() {
 	http.HandleFunc("/webhook", webhookHandler)
 }
@@ -70,11 +72,10 @@ func handlePushEvent(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		state := "failure"
 		desc := "Something went wrong when checking who approved the PRs."
-		context := "tink/four-eyes"
 		client.Repositories.CreateStatus(ctx, event.GetRepo().GetOwner().GetName(), event.GetRepo().GetName(), event.GetHeadCommit().GetID(), &github.RepoStatus{
 			State:       &state,
 			Description: &desc,
-			Context:     &context,
+			Context:     &commitStatusContext,
 		})
 	}
 	w.WriteHeader(204)
@@ -88,11 +89,8 @@ func setMergeCommitStatus(ctx context.Context, client *github.Client, data githu
 		rejectedPrs = append(rejectedPrs, fmt.Sprintf("#%s", pullRequestNumber))
 	}
 
-	// TODO: Move to constant and replace all usages.
-	appContext := "tink/four-eyes"
-
 	var status github.RepoStatus
-	status.Context = &appContext
+	status.Context = &commitStatusContext
 
 	var state, desc string
 	if len(rejectedPrs) == 0 {
