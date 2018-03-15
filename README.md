@@ -23,13 +23,19 @@ Setup
 
 Developing
 ----------
-Before doing anything else you want to install `godep` and execute
+Before doing anything else you must set `$GOPATH` to the root of the project:g
 
+    export GOPATH=$(pwd)
+ 
+ then install [`godep`](https://github.com/tools/godep) and execute
+
+    $ cd src/four-eyes
     $ dep ensure
 
 to sync your `vendor` directory. Then install Google AppEngine SDK. Start a
 local development environment:
 
+    $ cd ../../appengine
     $ dev_appserver.py --enable_host_checking=False app.yaml
 
 (You need `--enable_host_checking=False` for `ngrok` mentioned in next
