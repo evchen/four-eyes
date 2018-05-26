@@ -1,4 +1,4 @@
-package hello
+package foureyes
 
 // The following two fields must be set when creating a new app.
 var privateKey = []byte(`-----BEGIN RSA PRIVATE KEY-----

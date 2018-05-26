@@ -1,4 +1,4 @@
-package mypackage
+package appengine
 
 import (
 	_ "four-eyes"
