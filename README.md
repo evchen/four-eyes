@@ -1,9 +1,6 @@
 **UPDATE:** Since this project was created bors-ng has added
-`required_approvals`. However, there are security issues. Please track the
-following issues for resolution:
-
- * https://github.com/bors-ng/bors-ng/issues/371
- * https://github.com/bors-ng/bors-ng/issues/372
+`required_approvals` which superseedes the functionality that this project
+provides
 
 Four Eyes
 =========
