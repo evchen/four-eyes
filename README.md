@@ -58,3 +58,4 @@ Limitations
    discover all pull requests it merges. If bors-ng decides to change the
    format, it might fail parsing. That said, security-wise it will only fail
    tests, not pass them.
+
